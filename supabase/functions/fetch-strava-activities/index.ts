@@ -3,7 +3,7 @@ import { serve } from 'https://deno.land/x/sift/mod.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // Initialize Supabase client with service role key
-tconst supabase = createClient(
+const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
@@ -42,7 +42,7 @@ async function fetchActivityDetails(id: number, token: string) {
 }
 
 // Map Strava activity to your 'runs' table row
-tfunction mapActivityToRunRow(act: any) {
+function mapActivityToRunRow(act: any) {
   return {
     strava_workout_id: act.id,
     external_id: act.external_id,
@@ -69,8 +69,8 @@ tfunction mapActivityToRunRow(act: any) {
     has_power: act.has_power,
     average_watts: act.has_power ? act.average_watts : null,
     max_watts: act.has_power ? act.max_watts : null,
-    average_cadence: act.has_heartrate ? act.average_cadence : null,
-    max_cadence: act.has_heartrate ? act.max_cadence : null,
+    average_cadence: act.average_cadence,
+    max_cadence: act.max_cadence,
     total_elevation_gain: act.total_elevation_gain,
     trainer: act.trainer,
     commute: act.commute,
@@ -114,4 +114,3 @@ serve(async () => {
 
   return new Response(JSON.stringify({ status: 'synced' }), { status: 200 });
 });
-EOF
