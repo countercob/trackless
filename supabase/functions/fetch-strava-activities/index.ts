@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/x/sift/mod.ts';
-import { createClient } from 'https://deno.land/x/supabase/mod.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // Initialize Supabase client with service role key
 const supabase = createClient(
