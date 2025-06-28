@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/x/sift/mod.ts';
 import { createClient } from 'https://deno.land/x/supabase/mod.ts';
 
 // Initialize Supabase client with service role key
-auth const supabase = createClient(
+const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
@@ -98,7 +98,8 @@ function mapActivityToRunRow(act: any) {
   };
 }
 
-// Entry point\serve(async () => {
+// Entry point
+serve(async () => {
   const token = await getStravaAccessToken();
   const activities = await fetchActivities(token);
 
