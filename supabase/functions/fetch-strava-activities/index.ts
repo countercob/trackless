@@ -1,3 +1,4 @@
+// @ts-nocheck
 // File: supabase/functions/fetch-strava-activities/index.ts
 import { serve } from 'https://deno.land/x/sift/mod.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
