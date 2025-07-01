@@ -1,18 +1,19 @@
-// File: supabase/functions/fetch-strava-activities/index.ts
+// supabase/functions/fetch-strava-activities/index.ts
 // @ts-nocheck
+
 import { serve } from 'https://deno.land/x/sift/mod.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-// Initialize Supabase client with service role key
+// 1) Initialize Supabase
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-// Refresh Strava access token
+// 2) Refresh Strava token
 async function getStravaAccessToken(): Promise<string> {
   const refreshToken = Deno.env.get('STRAVA_REFRESH_TOKEN')!;
-  const res = await fetch('https://www.strava.com/oauth/token', {
+  const r = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -22,63 +23,67 @@ async function getStravaAccessToken(): Promise<string> {
       refresh_token: refreshToken,
     }),
   });
-  const data = await res.json();
-  return data.access_token as string;
+  const j = await r.json();
+  return j.access_token as string;
 }
 
-// Fetch and upsert logic (same as before)…
-async function fetchActivities(token: string) {
+// 3) Fetch summaries & details
+async function fetchSummaries(token: string) {
   const r = await fetch(
     'https://www.strava.com/api/v3/athlete/activities?per_page=30',
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return r.json() as Promise<any[]>;
 }
-async function fetchActivityDetails(id: number, token: string) {
+async function fetchDetails(id: number, token: string) {
   const r = await fetch(
     `https://www.strava.com/api/v3/activities/${id}?include_all_efforts=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return r.json();
 }
-function mapActivityToRunRow(act: any) {
+
+// 4) Map to your runs table
+function mapToRow(a: any) {
   console.log('DBG:', {
-    id: act.id,
-    avg_hr: act.average_heartrate,
-    max_hr: act.max_heartrate,
-    move:   act.moving_time,
-    elapsed: act.elapsed_time,
+    id: a.id,
+    avg_hr: a.average_heartrate,
+    max_hr: a.max_heartrate,
+    move: a.moving_time,
+    elapsed: a.elapsed_time,
   });
   return {
-    strava_workout_id: act.id,
-    start_date:        act.start_date,
-    distance:          act.distance,
-    average_speed:     act.average_speed,
-    has_heartrate:     act.has_heartrate,
-    average_heartrate: act.has_heartrate ? act.average_heartrate : null,
-    max_heartrate:     act.has_heartrate ? act.max_heartrate : null,
-    moving_time:       act.moving_time,
-    elapsed_time:      act.elapsed_time,
-    elevation_gain:    act.total_elevation_gain,
-    description:       act.description || '',
+    strava_workout_id:   a.id,
+    start_date:          a.start_date,
+    distance:            a.distance,
+    average_speed:       a.average_speed,
+    has_heartrate:       a.has_heartrate,
+    average_heartrate:   a.has_heartrate ? a.average_heartrate : null,
+    max_heartrate:       a.has_heartrate ? a.max_heartrate : null,
+    moving_time:         a.moving_time,
+    elapsed_time:        a.elapsed_time,
+    elevation_gain:      a.total_elevation_gain,
+    description:         a.description || '',
   };
 }
 
-// **KEY CHANGE**: catch every POST on ANY path
-serve({
-  'POST /*': async () => {
-    const token     = await getStravaAccessToken();
-    const summaries = await fetchActivities(token);
-
-    for (const s of summaries) {
-      const d = await fetchActivityDetails(s.id, token);
-      const row = mapActivityToRunRow(d);
-      const { error } = await supabase
-        .from('runs')
-        .upsert(row, { onConflict: ['strava_workout_id'] });
-      if (error) console.error('Upsert error', error);
-    }
-
-    return new Response(JSON.stringify({ status: 'synced' }), { status: 200 });
+// 5) Entrypoint: one async for ALL requests
+serve(async (req) => {
+  if (req.method !== 'POST') {
+    return new Response('Not Found', { status: 404 });
   }
+
+  const token     = await getStravaAccessToken();
+  const summaries = await fetchSummaries(token);
+
+  for (const s of summaries) {
+    const d = await fetchDetails(s.id, token);
+    const row = mapToRow(d);
+    const { error } = await supabase
+      .from('runs')
+      .upsert(row, { onConflict: ['strava_workout_id'] });
+    if (error) console.error('Upsert error', error);
+  }
+
+  return new Response(JSON.stringify({ status: 'synced' }), { status: 200 });
 });
